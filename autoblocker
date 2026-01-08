@@ -2,212 +2,211 @@ local Players = game:GetService("Players")
 local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
-local GuiService = game:GetService("GuiService")
 local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
-local HttpService = game:GetService("HttpService")
+local Lighting = game:GetService("Lighting")
 
--- // FILE SYSTEM SAVING // --
-local filename = "InfernoHub_Config.json"
-local config = {
-    clickX = workspace.CurrentCamera.ViewportSize.X / 2,
-    clickY = (workspace.CurrentCamera.ViewportSize.Y / 2) + 70,
-    searchEnabled = false,
-    delay = 0.15
-}
+-- // TRACKERS // --
+local BlockedInSession = {}
+local AutoRefreshActive = false
+local espActive = false
+local fpsActive = false
+local Camera = workspace.CurrentCamera
 
-local function saveConfig()
-    if writefile then writefile(filename, HttpService:JSONEncode(config)) end
-end
-
-local function loadConfig()
-    if isfile and isfile(filename) then
-        local success, decoded = pcall(HttpService.JSONDecode, HttpService, readfile(filename))
-        if success then config = decoded end
-    end
-end
-loadConfig()
-
--- // CONFIGURATION // --
-local isCalibrating = false
-local isOpen = false
-local settingsOpen = false
-local blockNearestKey = Enum.KeyCode.F
-local blockAllKey = Enum.KeyCode.K
-
--- // GUI SETUP // --
+-- // UI SETUP // --
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "InfernoHub_Final"
+screenGui.Name = "InfernoHub_Final_V2"
 screenGui.ResetOnSpawn = false
+screenGui.DisplayOrder = 999999
 screenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
 
 local container = Instance.new("Frame")
-container.Size = UDim2.new(0, 280, 0, 40)
-container.Position = UDim2.new(1, -300, 0, 50) 
-container.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
-container.BorderSizePixel = 0
-container.ClipsDescendants = true
+container.Size = UDim2.new(0, 330, 0, 42)
+container.Position = UDim2.new(0.5, -165, 0.3, 0) 
+container.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+container.BackgroundTransparency = 0
 container.Active = true
+container.ClipsDescendants = true
 container.Parent = screenGui
 
 local border = Instance.new("UIStroke")
 border.Thickness = 2
-border.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 border.Color = Color3.fromRGB(255, 60, 0)
 border.Parent = container
 Instance.new("UICorner", container).CornerRadius = UDim.new(0, 10)
 
--- // HEADER (ALWAYS DRAGGABLE) // --
-local header = Instance.new("TextButton")
-header.Size = UDim2.new(1, -80, 0, 40)
-header.Position = UDim2.new(0, 10, 0, 0)
-header.BackgroundTransparency = 1
-header.Text = "▼ INFERNO HUB 🔥"
-header.TextColor3 = Color3.fromRGB(255, 100, 0)
-header.Font = Enum.Font.GothamBold
-header.TextSize = 15
-header.TextXAlignment = Enum.TextXAlignment.Left
-header.Parent = container
+-- // HEADER // --
+local headerText = Instance.new("TextLabel")
+headerText.Size = UDim2.new(0, 120, 0, 42); headerText.Position = UDim2.new(0, 12, 0, 0)
+headerText.BackgroundTransparency = 1; headerText.Text = "INFERNO HUB 🔥"; headerText.TextColor3 = Color3.fromRGB(255, 100, 0)
+headerText.Font = Enum.Font.GothamBold; headerText.TextSize = 13; headerText.TextXAlignment = Enum.TextXAlignment.Left; headerText.Parent = container
 
-local settingsBtn = Instance.new("TextButton")
-settingsBtn.Size = UDim2.new(0, 30, 0, 30)
-settingsBtn.Position = UDim2.new(1, -70, 0, 5)
-settingsBtn.BackgroundTransparency = 1
-settingsBtn.Text = "⚙️"; settingsBtn.Parent = container
+local premiumTag = Instance.new("TextLabel")
+premiumTag.Size = UDim2.new(0, 60, 0, 42); premiumTag.Position = UDim2.new(0, 125, 0, 0)
+premiumTag.BackgroundTransparency = 1; premiumTag.Text = "PREMIUM"; premiumTag.TextColor3 = Color3.fromRGB(255, 215, 0)
+premiumTag.Font = Enum.Font.GothamBold; premiumTag.TextSize = 10; premiumTag.Parent = container
 
-local closeBtn = Instance.new("TextButton")
-closeBtn.Size = UDim2.new(0, 30, 0, 30)
-closeBtn.Position = UDim2.new(1, -35, 0, 5)
-closeBtn.BackgroundTransparency = 1
-closeBtn.Text = "✕"; closeBtn.TextColor3 = Color3.fromRGB(200, 0, 0); closeBtn.Parent = container
-
--- // CONTENT // --
-local mainContent = Instance.new("Frame")
-mainContent.Size = UDim2.new(1, 0, 1, -40); mainContent.Position = UDim2.new(0, 0, 0, 40); mainContent.BackgroundTransparency = 1; mainContent.Parent = container
-
-local settingsPanel = Instance.new("ScrollingFrame")
-settingsPanel.Size = UDim2.new(1, -20, 0, 310); settingsPanel.Position = UDim2.new(1, 10, 0, 50); settingsPanel.BackgroundTransparency = 1; settingsPanel.ScrollBarThickness = 0; settingsPanel.Parent = container
-Instance.new("UIListLayout", settingsPanel).Padding = UDim.new(0, 8)
-
-local searchBar = Instance.new("TextBox")
-searchBar.Size = UDim2.new(1, -20, 0, 30); searchBar.Position = UDim2.new(0, 10, 0, 10); searchBar.BackgroundColor3 = Color3.fromRGB(20, 10, 5); searchBar.PlaceholderText = "Search player..."; searchBar.TextColor3 = Color3.new(1, 1, 1); searchBar.Visible = config.searchEnabled; searchBar.Font = Enum.Font.Gotham; searchBar.Parent = mainContent
-Instance.new("UICorner", searchBar).CornerRadius = UDim.new(0, 6)
-
-local scroll = Instance.new("ScrollingFrame")
-scroll.Size = UDim2.new(1, -20, 0, config.searchEnabled and 270 or 310); scroll.Position = UDim2.new(0, 10, 0, config.searchEnabled and 50 or 10); scroll.BackgroundTransparency = 1; scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y; scroll.ScrollBarThickness = 0; scroll.Parent = mainContent
-Instance.new("UIListLayout", scroll).Padding = UDim.new(0, 8)
-
--- // CORE LOGIC // --
-local function autoConfirmBlock()
-    task.wait(config.delay)
-    VirtualInputManager:SendMouseButtonEvent(config.clickX, config.clickY, 0, true, game, 0)
-    task.wait(0.01)
-    VirtualInputManager:SendMouseButtonEvent(config.clickX, config.clickY, 0, false, game, 0)
-end
-
-local function blockTarget(p)
-    if not p then return end
-    pcall(function() StarterGui:SetCore("PromptBlockPlayer", p) end)
-    task.spawn(autoConfirmBlock)
-end
-
-local function updateList()
-    for _, v in pairs(scroll:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
-    local query = searchBar.Text:lower()
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= Players.LocalPlayer and (not config.searchEnabled or string.find(p.Name:lower(), query) or string.find(p.DisplayName:lower(), query)) then
-            local btn = Instance.new("TextButton")
-            btn.Size = UDim2.new(1, 0, 0, 50); btn.BackgroundColor3 = Color3.fromRGB(20, 20, 20); btn.Text = ""; btn.Parent = scroll
-            Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8); Instance.new("UIStroke", btn).Color = Color3.fromRGB(60, 20, 0)
-            
-            local dName = Instance.new("TextLabel")
-            dName.Size = UDim2.new(1, -20, 0, 50); dName.Position = UDim2.new(0, 10, 0, 0); dName.BackgroundTransparency = 1; dName.Text = p.DisplayName; dName.TextColor3 = Color3.new(1, 1, 1); dName.Font = Enum.Font.GothamBold; dName.TextSize = 14; dName.TextXAlignment = Enum.TextXAlignment.Left; dName.Parent = btn
-            
-            btn.MouseButton1Click:Connect(function() blockTarget(p) end)
-        end
-    end
-end
-
--- // SETTINGS BUTTONS // --
-local function createSetBtn(txt)
+-- // NAVIGATION // --
+local function createNav(txt, pos, color)
     local b = Instance.new("TextButton")
-    b.Size = UDim2.new(1, 0, 0, 35); b.BackgroundColor3 = Color3.fromRGB(20, 10, 5); b.TextColor3 = Color3.new(1,1,1); b.Font = Enum.Font.Gotham; b.TextSize = 12; b.Text = txt; b.Parent = settingsPanel
-    Instance.new("UICorner", b); Instance.new("UIStroke", b).Color = Color3.fromRGB(60, 20, 0)
+    b.Size = UDim2.new(0, 25, 0, 25); b.Position = pos; b.BackgroundTransparency = 1
+    b.Text = txt; b.TextSize = 16; b.TextColor3 = color or Color3.new(1,1,1); b.Parent = container
     return b
 end
 
-local calibrateBtn = createSetBtn("Calibrate Click Position")
-local searchToggleBtn = createSetBtn("Search Bar: " .. (config.searchEnabled and "ON" or "OFF"))
+local settingsBtn = createNav("⚙️", UDim2.new(1, -125, 0, 8.5))
+local refreshBtn = createNav("🔄", UDim2.new(1, -95, 0, 8.5))
+local toggleBtn = createNav("▼", UDim2.new(1, -65, 0, 8.5))
+local closeBtn = createNav("✕", UDim2.new(1, -35, 0, 8.5), Color3.fromRGB(255, 0, 0))
 
-searchToggleBtn.MouseButton1Click:Connect(function()
-    config.searchEnabled = not config.searchEnabled
-    searchToggleBtn.Text = "Search Bar: " .. (config.searchEnabled and "ON" or "OFF")
-    searchBar.Visible = config.searchEnabled
-    scroll.Position = config.searchEnabled and UDim2.new(0, 10, 0, 50) or UDim2.new(0, 10, 0, 10)
-    scroll.Size = config.searchEnabled and UDim2.new(1, -20, 0, 270) or UDim2.new(1, -20, 0, 310)
-    saveConfig(); updateList()
-end)
+-- // PAGES // --
+local mainPage = Instance.new("Frame")
+mainPage.Size = UDim2.new(1, 0, 1, -42); mainPage.Position = UDim2.new(0, 0, 0, 42); mainPage.BackgroundTransparency = 1; mainPage.Parent = container
 
-calibrateBtn.MouseButton1Click:Connect(function()
-    isCalibrating = true
-    calibrateBtn.Text = "CLICK BLOCK BUTTON NOW"
-end)
+local settingsPage = Instance.new("Frame")
+settingsPage.Size = UDim2.new(1, 0, 1, -42); settingsPage.Position = UDim2.new(1, 0, 0, 42); settingsPage.BackgroundTransparency = 1; settingsPage.Parent = container
+Instance.new("UIListLayout", settingsPage).Padding = UDim.new(0, 8)
+settingsPage.UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
-UserInputService.InputBegan:Connect(function(input, gpe)
-    if isCalibrating and input.UserInputType == Enum.UserInputType.MouseButton1 then
-        config.clickX = input.Position.X
-        config.clickY = input.Position.Y + GuiService:GetGuiInset().Y
-        saveConfig(); isCalibrating = false
-        calibrateBtn.Text = "Saved!"; task.wait(1); calibrateBtn.Text = "Calibrate Click Position"
-        return
+local function createSetBtn(txt)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(1, -30, 0, 40); b.BackgroundColor3 = Color3.fromRGB(20, 20, 20); b.Text = txt
+    b.TextColor3 = Color3.new(1,1,1); b.Font = Enum.Font.GothamBold; b.TextSize = 11; b.Parent = settingsPage
+    Instance.new("UICorner", b); local s = Instance.new("UIStroke", b); s.Color = Color3.fromRGB(255, 60, 0); s.Thickness = 1.5
+    return b
+end
+
+local fBtn = createSetBtn("FPS BOOSTER: OFF")
+local eBtn = createSetBtn("PLAYER ESP: OFF")
+local aBtn = createSetBtn("AUTO REFRESH: OFF")
+
+-- // BLOCK LOGIC // --
+local function fastBlock()
+    task.wait(0.05) 
+    local v = Camera.ViewportSize
+    local clickX, clickY = v.X / 2, (v.Y / 2) + 55 
+    VirtualInputManager:SendMouseButtonEvent(clickX, clickY, 0, true, game, 0)
+    VirtualInputManager:SendMouseButtonEvent(clickX, clickY, 0, false, game, 0)
+end
+
+-- // LIST REFRESH // --
+local scroll = Instance.new("ScrollingFrame")
+scroll.Size = UDim2.new(1, -16, 1, -55); scroll.Position = UDim2.new(0, 8, 0, 50); scroll.BackgroundTransparency = 1; scroll.ScrollBarThickness = 3
+scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y; scroll.Parent = mainPage
+Instance.new("UIListLayout", scroll).Padding = UDim.new(0, 6)
+
+local function refresh()
+    for _, v in pairs(scroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
+    for _, p in pairs(Players:GetPlayers()) do
+        if p == Players.LocalPlayer then continue end
+        local row = Instance.new("Frame")
+        row.Size = UDim2.new(1, -8, 0, 45); row.BackgroundColor3 = Color3.fromRGB(15, 15, 15); row.Parent = scroll
+        Instance.new("UICorner", row)
+
+        local headshot = Instance.new("ImageLabel")
+        headshot.Size = UDim2.new(0, 35, 0, 35); headshot.Position = UDim2.new(0, 5, 0.5, -17.5)
+        headshot.BackgroundTransparency = 1; headshot.Parent = row
+        Instance.new("UICorner", headshot).CornerRadius = UDim.new(1, 0)
+        
+        task.spawn(function()
+            local content = Players:GetUserThumbnailAsync(p.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
+            headshot.Image = content
+        end)
+
+        local name = Instance.new("TextLabel")
+        name.Size = UDim2.new(1, -130, 1, 0); name.Position = UDim2.new(0, 48, 0, 0); name.BackgroundTransparency = 1
+        name.Text = p.DisplayName; name.TextColor3 = Color3.new(1, 1, 1); name.Font = Enum.Font.GothamBold; name.TextSize = 12; name.TextXAlignment = Enum.TextXAlignment.Left; name.Parent = row
+
+        local bBtn = Instance.new("TextButton")
+        bBtn.Size = UDim2.new(0, 75, 0, 30); bBtn.Position = UDim2.new(1, -80, 0.5, -15)
+        
+        if BlockedInSession[p.UserId] then
+            bBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50); bBtn.Text = "BLOCKED"
+        else
+            bBtn.BackgroundColor3 = Color3.fromRGB(180, 30, 30); bBtn.Text = "BLOCK"
+        end
+        
+        bBtn.TextColor3 = Color3.new(1,1,1); bBtn.Font = Enum.Font.GothamBold; bBtn.TextSize = 11; bBtn.Parent = row
+        Instance.new("UICorner", bBtn)
+
+        bBtn.MouseButton1Click:Connect(function()
+            if not BlockedInSession[p.UserId] then
+                BlockedInSession[p.UserId] = true
+                StarterGui:SetCore("PromptBlockPlayer", p)
+                task.spawn(fastBlock)
+                bBtn.Text = "BLOCKED"; bBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+            end
+        end)
     end
-    if gpe then return end
-    if input.KeyCode == blockNearestKey then
-        local target = nil; local dist = math.huge
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= Players.LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                local d = (Players.LocalPlayer.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
-                if d < dist then dist = d; target = p end
+end
+
+-- // BLOCK ALL BUTTON WITH VISUAL FEEDBACK // --
+local blockAllBtn = Instance.new("TextButton")
+blockAllBtn.Size = UDim2.new(1, -16, 0, 35); blockAllBtn.Position = UDim2.new(0, 8, 0, 8)
+blockAllBtn.BackgroundColor3 = Color3.fromRGB(180, 30, 30); blockAllBtn.Text = "BLOCK ALL PLAYERS"; blockAllBtn.TextSize = 12
+blockAllBtn.Font = Enum.Font.GothamBold; blockAllBtn.TextColor3 = Color3.new(1,1,1); blockAllBtn.Parent = mainPage
+Instance.new("UICorner", blockAllBtn)
+
+blockAllBtn.MouseButton1Click:Connect(function()
+    -- Change to Blocking state
+    blockAllBtn.Text = "BLOCKING..."
+    blockAllBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= Players.LocalPlayer and not BlockedInSession[p.UserId] then
+            BlockedInSession[p.UserId] = true
+            StarterGui:SetCore("PromptBlockPlayer", p)
+            fastBlock()
+            task.wait(0.2) -- Necessary delay for engine registration
+        end
+    end
+    
+    -- Change to Completed state
+    blockAllBtn.Text = "ALL BLOCKED"
+    refresh()
+end)
+
+-- // UI TOGGLES // --
+settingsBtn.MouseButton1Click:Connect(function()
+    showingSettings = not showingSettings
+    local mainT = showingSettings and UDim2.new(-1, 0, 0, 42) or UDim2.new(0, 0, 0, 42)
+    local settT = showingSettings and UDim2.new(0, 0, 0, 42) or UDim2.new(1, 0, 0, 42)
+    TweenService:Create(mainPage, TweenInfo.new(0.2), {Position = mainT}):Play()
+    TweenService:Create(settingsPage, TweenInfo.new(0.2), {Position = settT}):Play()
+    settingsBtn.Text = showingSettings and "🏠" or "⚙️"
+end)
+
+local isOpen = false
+toggleBtn.MouseButton1Click:Connect(function()
+    isOpen = not isOpen
+    local tSize = isOpen and UDim2.new(0, 330, 0, 350) or UDim2.new(0, 330, 0, 42)
+    toggleBtn.Text = isOpen and "▲" or "▼"
+    TweenService:Create(container, TweenInfo.new(0.25), {Size = tSize}):Play()
+end)
+
+fBtn.MouseButton1Click:Connect(function() fpsActive = not fpsActive; fBtn.Text = fpsActive and "FPS BOOSTER: ON ✅" or "FPS BOOSTER: OFF"; Lighting.GlobalShadows = not fpsActive end)
+eBtn.MouseButton1Click:Connect(function() espActive = not espActive; eBtn.Text = espActive and "PLAYER ESP: ON ✅" or "PLAYER ESP: OFF" end)
+aBtn.MouseButton1Click:Connect(function() AutoRefreshActive = not AutoRefreshActive; aBtn.Text = AutoRefreshActive and "AUTO REFRESH: ON ✅" or "AUTO REFRESH: OFF" end)
+
+-- Background Loops
+task.spawn(function()
+    while task.wait(3) do
+        if AutoRefreshActive then refresh() end
+        if espActive then
+            for _, p in pairs(Players:GetPlayers()) do
+                if p ~= Players.LocalPlayer and p.Character and not p.Character:FindFirstChild("InfernoESP") then
+                    local h = Instance.new("Highlight", p.Character); h.Name = "InfernoESP"; h.FillColor = Color3.fromRGB(255,0,0)
+                end
             end
         end
-        blockTarget(target)
     end
 end)
 
--- // UI LOGIC // --
-header.MouseButton1Click:Connect(function()
-    isOpen = not isOpen
-    local targetSize = isOpen and UDim2.new(0, 280, 0, 410) or UDim2.new(0, 280, 0, 40)
-    header.Text = isOpen and "▲ CLOSE HUB" or "▼ INFERNO HUB 🔥"
-    TweenService:Create(container, TweenInfo.new(0.4, Enum.EasingStyle.Quart), {Size = targetSize}):Play()
-end)
+-- Dragging
+local d, ds, sp
+container.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then d = true; ds = i.Position; sp = container.Position end end)
+UserInputService.InputChanged:Connect(function(i) if d and i.UserInputType == Enum.UserInputType.MouseMovement then local delta = i.Position - ds; container.Position = UDim2.new(sp.X.Scale, sp.X.Offset + delta.X, sp.Y.Scale, sp.Y.Offset + delta.Y) end end)
+UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then d = false end end)
 
-settingsBtn.MouseButton1Click:Connect(function()
-    settingsOpen = not settingsOpen
-    local mPos = settingsOpen and UDim2.new(-1, -10, 0, 40) or UDim2.new(0, 0, 0, 40)
-    local sPos = settingsOpen and UDim2.new(0, 10, 0, 50) or UDim2.new(1, 10, 0, 50)
-    TweenService:Create(mainContent, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {Position = mPos}):Play()
-    TweenService:Create(settingsPanel, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {Position = sPos}):Play()
-end)
-
-closeBtn.MouseButton1Click:Connect(function() saveConfig(); screenGui:Destroy() end)
-
--- // DRAGGABLE LOGIC // --
-local dragging, dragStart, startPos
-container.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true; dragStart = input.Position; startPos = container.Position
-    end
-end)
-UserInputService.InputChanged:Connect(function(input)
-    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-        local delta = input.Position - dragStart
-        container.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-end)
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
-end)
-
-updateList(); searchBar:GetPropertyChangedSignal("Text"):Connect(updateList)
-Players.PlayerAdded:Connect(updateList); Players.PlayerRemoving:Connect(updateList)
+refreshBtn.MouseButton1Click:Connect(refresh)
+closeBtn.MouseButton1Click:Connect(function() screenGui:Destroy() end)
+refresh()
